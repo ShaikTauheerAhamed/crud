@@ -1,0 +1,151 @@
+data : lo_message_container TYPE REF TO /iwbep/if_message_container, 
+
+           ls_matbasicdata type zcl_ztrupen_odata_matm_mpc=>ts_materialbasicdata, 
+
+           ls_bapimathead  type bapimathead, 
+
+           ls_bapimara     type bapi_mara, 
+
+           ls_bapimarax    type BAPI_MARAx, 
+
+           lt_makt         type standard table of bapi_makt, 
+
+           ls_makt         type bapi_makt, 
+
+           ls_return       type bapiret2. 
+
+    io_data_provider->read_entry_data( importing es_data = ls_matbasicdata ). 
+
+    ls_bapimathead-basic_view = abap_true. 
+
+    ls_bapimathead-material = ls_matbasicdata-matnr. 
+
+    ls_bapimathead-ind_sector = ls_matbasicdata-mbrsh. 
+
+    ls_bapimathead-matl_type = ls_matbasicdata-mtart. 
+
+    ls_bapimara-matl_group = ls_matbasicdata-matkl. 
+
+    ls_bapimarax-matl_group = abap_true. 
+
+    ls_bapimara-base_uom = ls_matbasicdata-meins. 
+
+    ls_bapimarax-base_uom = abap_true. 
+
+    ls_makt-langu = 'E'. 
+
+    ls_makt-matl_desc = ls_matbasicdata-maktx. 
+
+    append ls_makt to lt_makt. 
+
+    call function 'BAPI_MATERIAL_SAVEDATA' 
+
+      exporting 
+
+        headdata            = ls_bapimathead 
+
+        clientdata          = ls_bapimara 
+
+        clientdatax         = ls_bapimarax 
+
+      importing 
+
+        return              = ls_return 
+
+      tables 
+
+        materialdescription = lt_makt. 
+
+    if ls_return-type ne 'E' or "Error 
+
+     ls_return-type ne 'A' or "Abend 
+
+    ls_return-type ne 'X' . "System Error 
+
+      call function 'BAPI_TRANSACTION_COMMIT' 
+
+        exporting 
+
+          wait   = abap_true 
+
+        importing 
+
+          return = ls_return. 
+
+lo_message_container = me->mo_context->get_message_container( ). 
+
+"only to display message text. 
+
+CALL METHOD lo_message_container->add_message_text_only 
+
+EXPORTING 
+
+iv_msg_type = 'S' 
+
+iv_msg_text = 'Material Created Successfully' 
+
+iv_add_to_response_header = abap_true. 
+
+er_entity = ls_matbasicdata. 
+
+    endif. 
+
+endmethod. 
+
+ 
+
+For Read – GET Call 
+
+  method materialbasicdat_get_entity. 
+
+ 
+
+    data   :lo_message_container type ref to /iwbep/if_message_container, 
+
+            ls_matbasicdata      type zcl_ztrupen_odata_matm_mpc=>ts_materialbasicdata. 
+
+    read table it_key_tab into data(ls_key) with key name = 'Matnr'. 
+
+    if sy-subrc eq 0. 
+
+    Ls_matbasicdata-mandt = sy-mandt. 
+
+      select single matnr mbrsh mtart  matkl meins from mara 
+
+             into corresponding fields of ls_matbasicdata where 
+
+             matnr = ls_key-value. 
+
+      if sy-subrc eq 0. 
+
+        select single maktx from makt into ls_matbasicdata-maktx 
+
+           where matnr = ls_matbasicdata-matnr and spras = 'E'. 
+
+        if sy-subrc eq 0. 
+
+ 
+
+          er_entity = ls_matbasicdata. 
+
+        endif. 
+
+      endif. 
+
+    else. 
+
+      lo_message_container = me->mo_context->get_message_container( ). 
+
+      "only to display message text. 
+
+      call method lo_message_container->add_message_text_only 
+
+        exporting 
+
+          iv_msg_type               = 'E' 
+
+          iv_msg_text               = 'Material Does Not Exist' 
+
+          iv_add_to_response_header = abap_true. 
+
+    endif. 
